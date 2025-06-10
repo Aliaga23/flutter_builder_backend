@@ -1307,6 +1307,7 @@ async def analyze_ui_image(
         resp = await client.chat.completions.create(
             model="gpt-4o",
             temperature=0.3,
+            max_tokens=3000,
             messages=[{"role": "system", "content": system},
                       {"role": "user", "content": user}]
         )
@@ -1856,7 +1857,7 @@ async def analyze_ui_prompt(
         resp = await client.chat.completions.create(
             model="gpt-4o",
             temperature=0.1,
-            max_tokens=12000, # Limitar tokens
+            max_tokens=4000, # Limitar tokens
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg}
