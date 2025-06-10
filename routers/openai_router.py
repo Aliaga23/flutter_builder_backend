@@ -899,20 +899,14 @@ async def analyze_ui_image(
             },
             {
               "type": "button",
-              "label": "New Project",
+              "label": "Login",
               "variant": "default",
-              "x": 15,
-              "y": 50,
-              "width": "220px"
-            },
-            {
-              "type": "button",
-              "label": "Import Data",
-              "variant": "secondary",
-              "x": 15,
-              "y": 90,
-              "width": "220px"
-            },
+              "backgroundColor": "#34d399",
+              "textColor": "#ffffff",
+              "x": 20,
+              "y": 140,
+              "width": 260
+                                       },
             {
               "type": "textField",
               "label": "Search",
@@ -1303,7 +1297,7 @@ async def analyze_ui_image(
         IMPORTANTE: responde SOLO el JSON final, sin texto ni markdown.
         """)
 
-        system = "Eres un analista experto en UI/UX."
+        system = "Eres un analista experto en UI/UX.Analiza la imagen y genera un JSON que represente la estructura de una aplicación Flutter, incluyendo widgets, posiciones y estilos. El JSON debe seguir la estructura definida en la guía de widgets proporcionada."
         user   = [
             {"type": "text", "text": widget_guide},
             {"type": "image_url", "image_url": {"url": data_url}}
@@ -1312,8 +1306,7 @@ async def analyze_ui_image(
         # 3) llamada a GPT-4o
         resp = await client.chat.completions.create(
             model="gpt-4o",
-            temperature=0.0,
-            max_tokens=4096,
+            temperature=0.3,
             messages=[{"role": "system", "content": system},
                       {"role": "user", "content": user}]
         )
@@ -1455,22 +1448,16 @@ async def analyze_ui_prompt(
               "x": 15,
               "y": 15
             },
-            {
+             {
               "type": "button",
-              "label": "New Project",
+              "label": "Login",
               "variant": "default",
-              "x": 15,
-              "y": 50,
-              "width": "220px"
-            },
-            {
-              "type": "button",
-              "label": "Import Data",
-              "variant": "secondary",
-              "x": 15,
-              "y": 90,
-              "width": "220px"
-            },
+              "backgroundColor": "#34d399",
+              "textColor": "#ffffff",
+              "x": 20,
+              "y": 140,
+              "width": 260
+                                       },
             {
               "type": "textField",
               "label": "Search",
@@ -1868,11 +1855,12 @@ async def analyze_ui_prompt(
         # 2) Llamada a GPT-4o multimodal (aunque aquí sólo es texto)
         resp = await client.chat.completions.create(
             model="gpt-4o",
-            temperature=0.3,
+            temperature=0.1,
+            max_tokens=12000, # Limitar tokens
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg}
-            ]
+            ],
         )
         raw = resp.choices[0].message.content
 
