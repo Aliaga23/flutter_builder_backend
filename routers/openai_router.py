@@ -59,6 +59,9 @@ Generate and return ONLY the content of a complete and correct main.dart file.
         )
 
         generated_code = response.choices[0].message.content
+        
+        # Limpiar marcadores de código Dart
+        generated_code = re.sub(r'^```dart\s*|```$', '', generated_code.strip(), flags=re.MULTILINE)
 
         temp_dir = tempfile.mkdtemp()
         temp_path = Path(temp_dir)
