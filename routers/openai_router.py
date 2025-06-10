@@ -780,8 +780,7 @@ def _extract_json(raw: str) -> str:
 # ════════════════════════════════════════════════════
 @router.post("/analyze-ui-image")
 async def analyze_ui_image(
-    image: UploadFile = File(...),
-    debug: bool = Query(False, description="Muestra respuesta cruda de GPT-4o")
+    image: UploadFile = File(...)
 ):
     try:
         # 1) codificar imagen → data URL
@@ -1320,9 +1319,6 @@ async def analyze_ui_image(
         )
         raw = resp.choices[0].message.content
 
-        if debug:
-            return JSONResponse({"raw": raw})
-
         # 4) sanitizar y parsear
         try:
             clean = _extract_json(raw)
@@ -1342,13 +1338,8 @@ async def analyze_ui_image(
 
 @router.post("/analyze-ui-prompt")
 async def analyze_ui_prompt(
-    payload: dict,
-    debug: bool = Query(False, description="Muestra respuesta cruda de GPT-4o")
+    payload: dict
 ):
-    """
-    En lugar de enviar una imagen, envías un prompt describiendo tu diseño UI.
-    Devuelve un JSON de posicionamiento absoluto con los widgets.
-    """
     try:
         prompt_text = payload.get("prompt", "").strip()
         if not prompt_text:
@@ -1884,9 +1875,6 @@ async def analyze_ui_prompt(
             ]
         )
         raw = resp.choices[0].message.content
-
-        if debug:
-            return JSONResponse({"raw": raw})
 
         # 3) sanitizar y extraer bloque JSON balanceado
         try:
