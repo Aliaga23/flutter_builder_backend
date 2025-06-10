@@ -62,9 +62,14 @@ async def generate_flutter_code(json_data: Dict, background_tasks: BackgroundTas
         5. CODIGO:
           - Si el JSON te parece incompleto o ambiguo, completa los detalles necesarios para que el código Dart sea funcional.
           - Hace todo responsivo y adaptado a diferentes tamaños de pantalla.
-          - 1. ⚠️ Uso de primary: en ElevatedButton.styleFrom está obsoleto
-El parámetro primary: fue deprecado y ahora debes usar backgroundColor::
+          - ⚠️ Uso de primary: en ElevatedButton.styleFrom está obsoleto
+          - El parámetro primary: fue deprecado y ahora debes usar backgroundColor::
+          - No uses nada deprecado, usa siempre lo más reciente y actualizado de Flutter.
+          - Todos los widgets deben ser funcionales como ser switch, checkbox, slider, radioGroup, dropdown, datePicker, etc.
+          - Las tablas responsive deben ser creadas con SingleChildScrollView y DataTable.
+          - BottomNavigationBar debe ser creado con BottomNavigationBar y sus elementos deben ser creados con BottomNavigationBarItem.Tambien sus rutas deben ser creadas con Navigator.pushReplacementNamed(context, 'ruta').
         IMPORTANTE: Solo devuelve el código Dart puro y válido.
+          
         """
 
         response = await client.chat.completions.create(
