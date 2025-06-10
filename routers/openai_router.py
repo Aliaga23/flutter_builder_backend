@@ -31,29 +31,46 @@ async def generate_flutter_code(json_data: Dict, background_tasks: BackgroundTas
     temp_dir = None
     try:
         prompt = f"""
-        Based on this JSON specification, generate a complete main.dart file for a Flutter application:
+        Genera un archivo main.dart completo para una aplicación Flutter basada en esta especificación JSON:
         {json_data}
-        
 
-Requirements:
-1. The code must be valid and executable without any modifications.
-2. It must compile and run successfully without any errors or warnings.
-3. Only return the code — no explanations, no comments, no markdown formatting, and no ``` markers.
-4. Use only proper Flutter widgets, icons, and Flutter best practices.
-5. Structure the app with main(), MaterialApp, and Scaffold.
-6. Organize the code as needed to make it clean, readable, and maintainable.
-7. Ensure the layout exactly reflects the JSON structure.
-8. Optimize for responsiveness and performance.
-9. Do not include anything else except the pure Dart code content of main.dart.
-10. MAKE IT RESPONSIVE: The UI should adapt to different screen sizes and orientations.
-11. I need that every widget that is in the JSON is present in the code.
-Generate and return ONLY the content of a complete and correct main.dart file.
+        Requisitos obligatorios:
+        1. CÓDIGO VÁLIDO:
+           - Debe ser ejecutable sin modificaciones
+           - Debe compilar sin errores ni advertencias
+           - Solo código Dart puro, sin comentarios ni formato markdown
+
+        2. ESTRUCTURA:
+           - Usa widgets Flutter apropiados y mejores prácticas
+           - Estructura básica: main(), MaterialApp y Scaffold
+           - El código debe ser limpio, legible y mantenible
+           - La interfaz debe reflejar exactamente la estructura JSON
+
+        3. OPTIMIZACIÓN:
+           - Diseño responsive que se adapte a diferentes tamaños de pantalla
+           - Optimizado para rendimiento
+           - Todos los widgets del JSON deben estar presentes
+           - No uses widgets innecesarios ni contenedores extra
+
+        4. FORMATO:
+           - Devuelve SOLO el contenido del archivo main.dart
+           - Sin explicaciones
+           - Sin comentarios
+           - Sin marcadores de código
+           - Sin formato markdown
+
+        5. CODIGO:
+          - Si el JSON te parece incompleto o ambiguo, completa los detalles necesarios para que el código Dart sea funcional.
+          - Hace todo responsivo y adaptado a diferentes tamaños de pantalla.
+          - 1. ⚠️ Uso de primary: en ElevatedButton.styleFrom está obsoleto
+El parámetro primary: fue deprecado y ahora debes usar backgroundColor::
+        IMPORTANTE: Solo devuelve el código Dart puro y válido.
         """
 
         response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a Flutter expert code generator."},
+                {"role": "system", "content": "Eres un experto en generación de código Flutter."},
                 {"role": "user", "content": prompt}
             ]
         )
