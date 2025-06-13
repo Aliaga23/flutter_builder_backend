@@ -1,25 +1,20 @@
 """
-Collaboration WebSocket ― se crea acceso en caliente.
-
-URL:  /projects/{project_id}/ws?token=<JWT>
-
-• El JWT se decodifica con core/security.decode_token
-• Si el user aún NO está en user_project_access ⇒ se inserta
+Colaboración sin autenticación.
+Cualquiera que abra /projects/{project_id}/ws entra en la sala.
+Se le da un user_id anónimo generado al vuelo (guest-UUID).
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
-from uuid import UUID
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from uuid import UUID, uuid4
 from typing import Dict, List
 from datetime import datetime
 
-from sqlalchemy.exc import IntegrityError
-
 from core.database import SessionLocal
-from core.security import decode_token
 from models.user_project_access import UserProjectAccess
+from models.user import User                      # si existe tu tabla User
 
 router = APIRouter(prefix="/projects", tags=["Realtime"])
-_rooms: Dict[UUID, List[WebSocket]] = {}   # project_id → [ws…]
+_rooms: Dict[UUID, List[WebSocket]] = {}              # project_id → sockets
 
 
 def _db():
@@ -32,42 +27,31 @@ def _db():
 
 @router.websocket("/{project_id}/ws")
 async def project_ws(websocket: WebSocket, project_id: UUID):
-    # 1 ─── JWT ───────────────────────────────────────────────────────
-    token = websocket.query_params.get("token", "")
-    payload = decode_token(token)
-    if payload is None:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-    user_id = UUID(payload["sub"])
-
-    # 2 ─── Conexión DB y alta “on-the-fly” ───────────────────────────
-    db_iter = _db()
-    db = next(db_iter)
-    access = (
-        db.query(UserProjectAccess)
-        .filter_by(user_id=user_id, project_id=project_id)
-        .first()
-    )
-    if access is None:
-        try:
-            access = UserProjectAccess(
-                user_id=user_id,
-                project_id=project_id,
-                granted_at=datetime.utcnow(),    # si tu modelo lo tiene
-            )
-            db.add(access)
-            db.commit()
-        except IntegrityError:
-            db.rollback()   # alguien lo insertó a la vez; seguimos
-    db_iter.close()
-
-    # 3 ─── Aceptar y retransmitir ────────────────────────────────────
+    # 0) aceptar cuanto antes para no bloquear handshake
     await websocket.accept()
-    _rooms.setdefault(project_id, []).append(websocket)
 
+    # 1) ─── user_id anónimo ──────────────────────────────────────────
+    guest_id = uuid4()                                 # "session id"
+    #  opcional: crea entrada User/Access para estadísticas
+    with next(_db()) as db:
+        try:
+            db.add(User(id=guest_id, email=f"guest-{guest_id}@noauth"))
+            db.add(
+                UserProjectAccess(
+                    user_id=guest_id,
+                    project_id=project_id,
+                    granted_at=datetime.utcnow(),
+                )
+            )
+            db.commit()
+        except Exception:
+            db.rollback()  # si la tabla User no lo permite, ignora
+
+    # 2) ─── unir a la sala & broadcast ──────────────────────────────
+    _rooms.setdefault(project_id, []).append(websocket)
     try:
         while True:
-            msg = await websocket.receive_text()        # → JSON / Patch
+            msg = await websocket.receive_text()
             for peer in _rooms[project_id]:
                 if peer is not websocket:
                     await peer.send_text(msg)
