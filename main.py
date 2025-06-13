@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import user as user_router
 from routers import project as project_router
 from routers import openai_router
+from routers import project_ws         # ⬅️  importar
 
 # Crear la aplicación 
 app = FastAPI(
@@ -26,7 +27,7 @@ app.add_middleware(
 app.include_router(user_router.router, prefix="/users", tags=["Users"])
 app.include_router(project_router.router, prefix="/projects", tags=["Projects"]) 
 app.include_router(openai_router.router, prefix="/openai", tags=["OpenAI"])
-
+app.include_router(project_ws.router, prefix="/projects", tags=["Realtime"])
 # Ruta raíz
 @app.get("/")
 def read_root():

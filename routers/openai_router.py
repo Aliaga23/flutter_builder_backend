@@ -1871,7 +1871,8 @@ async def analyze_ui_prompt(
   ]
 }
         IMPORTANTE: devuelve SOLO el JSON final, sin explicaciones ni markdown.
-        """)
+        
+                                       """)
 
         system_msg = "Eres un analista experto en UI/UX. Convierte el prompt en un JSON válido."
         user_msg = [
