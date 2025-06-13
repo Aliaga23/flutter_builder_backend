@@ -1,61 +1,70 @@
-"""
-Colaboración sin autenticación.
-Cualquiera que abra /projects/{project_id}/ws entra en la sala.
-Se le da un user_id anónimo generado al vuelo (guest-UUID).
-"""
-
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from uuid import UUID, uuid4
-from typing import Dict, List
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from uuid import UUID
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
 from core.database import SessionLocal
 from models.user_project_access import UserProjectAccess
-from models.user import User                      # si existe tu tabla User
+from core.security import decode_token         # tu helper JWT
 
 router = APIRouter(prefix="/projects", tags=["Realtime"])
-_rooms: Dict[UUID, List[WebSocket]] = {}              # project_id → sockets
+_rooms = {}
 
-
-def _db():
-    db = SessionLocal()
+def db():
+    d = SessionLocal()
     try:
-        yield db
+        yield d
     finally:
-        db.close()
-
+        d.close()
 
 @router.websocket("/{project_id}/ws")
-async def project_ws(websocket: WebSocket, project_id: UUID):
-    # 0) aceptar cuanto antes para no bloquear handshake
-    await websocket.accept()
+async def project_ws(ws: WebSocket, project_id: UUID):
+    # ── 1) Token desde el sub-protocolo ────────────────────────────
+    proto_hdr = ws.headers.get("sec-websocket-protocol", "")
+    #     Ej.:  "jwt.eyJhbGciOiJIUzI1NiIsInR..."
+    token = ""
+    for part in proto_hdr.split(","):
+        part = part.strip()
+        if part.startswith("jwt."):
+            token = part[4:]            # quita "jwt."
+            break
 
-    # 1) ─── user_id anónimo ──────────────────────────────────────────
-    guest_id = uuid4()                                 # "session id"
-    #  opcional: crea entrada User/Access para estadísticas
-    with next(_db()) as db:
-        try:
-            db.add(User(id=guest_id, email=f"guest-{guest_id}@noauth"))
-            db.add(
-                UserProjectAccess(
-                    user_id=guest_id,
-                    project_id=project_id,
-                    granted_at=datetime.utcnow(),
+    payload = decode_token(token)
+    if payload is None:
+        await ws.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    user_id = UUID(payload["sub"])
+
+    # ── 2) Inserta acceso si falta ─────────────────────────────────
+    with next(db()) as session:
+        exists = (
+            session.query(UserProjectAccess)
+            .filter_by(user_id=user_id, project_id=project_id)
+            .first()
+        )
+        if not exists:
+            try:
+                session.add(
+                    UserProjectAccess(
+                        user_id=user_id,
+                        project_id=project_id,
+                        granted_at=datetime.utcnow(),
+                    )
                 )
-            )
-            db.commit()
-        except Exception:
-            db.rollback()  # si la tabla User no lo permite, ignora
+                session.commit()
+            except IntegrityError:
+                session.rollback()
 
-    # 2) ─── unir a la sala & broadcast ──────────────────────────────
-    _rooms.setdefault(project_id, []).append(websocket)
+    # ── 3) Conexión y broadcast ───────────────────────────────────
+    await ws.accept(subprotocol=f"jwt")   # responde con uno de los protocolos ofrecidos
+    _rooms.setdefault(project_id, []).append(ws)
     try:
         while True:
-            msg = await websocket.receive_text()
+            msg = await ws.receive_text()
             for peer in _rooms[project_id]:
-                if peer is not websocket:
+                if peer is not ws:
                     await peer.send_text(msg)
     except WebSocketDisconnect:
-        _rooms[project_id].remove(websocket)
+        _rooms[project_id].remove(ws)
         if not _rooms[project_id]:
-            _rooms.pop(project_id, None)
+            _rooms.pop(project_id)
