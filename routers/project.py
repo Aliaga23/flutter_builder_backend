@@ -115,31 +115,33 @@ def update_project(
     user=Depends(get_current_user)
 ):
     user_id = UUID(user["sub"])
-    
-    # Verificar si el proyecto existe
+
+    # 1) ¿Existe el proyecto?
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
-    
-    # Verificar si el usuario tiene permiso (solo el dueño puede actualizar)
-    if project.owner_id != user_id:
+
+    # 2) ¿El usuario tiene acceso (owner **o** colaborador)?
+    access = db.query(UserProjectAccess).filter_by(
+        user_id=user_id, project_id=project_id
+    ).first()
+    if not access:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to update this project"
         )
-    
-    # Actualizar los campos del proyecto
+
+    # 3) Actualizar campos
     project.name = payload.name
     project.data = payload.data
     project.updated_at = datetime.datetime.utcnow()
-    
+
     db.commit()
     db.refresh(project)
     return project
-
 # ---------------------------------------------------------------------------
 # 5. ELIMINAR PROYECTO
 # ---------------------------------------------------------------------------
