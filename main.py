@@ -27,7 +27,7 @@ app.add_middleware(
 app.include_router(user_router.router, prefix="/users", tags=["Users"])
 app.include_router(project_router.router, prefix="/projects", tags=["Projects"]) 
 app.include_router(openai_router.router, prefix="/openai", tags=["OpenAI"])
-app.include_router(project_ws.router, prefix="/projects", tags=["Realtime"])
+app.include_router(project_ws.router)
 # Ruta raíz
 @app.get("/")
 def read_root():
