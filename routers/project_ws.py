@@ -19,44 +19,45 @@ def db():
 
 @router.websocket("/{project_id}/ws")
 async def project_ws(ws: WebSocket, project_id: UUID):
-    # ── 1) Token desde el sub-protocolo ────────────────────────────
+    # 1️⃣  — leer sub-protocolo que mandó el cliente —
     proto_hdr = ws.headers.get("sec-websocket-protocol", "")
-    #     Ej.:  "jwt.eyJhbGciOiJIUzI1NiIsInR..."
-    token = ""
-    for part in proto_hdr.split(","):
-        part = part.strip()
-        if part.startswith("jwt."):
-            token = part[4:]            # quita "jwt."
-            break
+    client_proto = proto_hdr.split(",")[0].strip()  # ej. "jwt.eyJhbGciOiJI..."
 
+    if not client_proto.startswith("jwt."):
+        await ws.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    token = client_proto[4:]                        # quita "jwt."
     payload = decode_token(token)
     if payload is None:
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
     user_id = UUID(payload["sub"])
 
-    # ── 2) Inserta acceso si falta ─────────────────────────────────
-    with next(db()) as session:
+    # 2️⃣  — insertar acceso si falta —
+    session = SessionLocal()
+    try:
         exists = (
             session.query(UserProjectAccess)
             .filter_by(user_id=user_id, project_id=project_id)
             .first()
         )
         if not exists:
-            try:
-                session.add(
-                    UserProjectAccess(
-                        user_id=user_id,
-                        project_id=project_id,
-                        granted_at=datetime.utcnow(),
-                    )
-                )
-                session.commit()
-            except IntegrityError:
-                session.rollback()
+            session.add(UserProjectAccess(
+                user_id=user_id,
+                project_id=project_id,
+                granted_at=datetime.utcnow(),
+            ))
+            session.commit()
+    except IntegrityError:
+        session.rollback()
+    finally:
+        session.close()
 
-    # ── 3) Conexión y broadcast ───────────────────────────────────
-    await ws.accept(subprotocol=f"jwt")   # responde con uno de los protocolos ofrecidos
+    # 3️⃣  — completar handshake devolviendo EL MISMO protocolo —
+    await ws.accept(subprotocol=client_proto)
+
+    # 4️⃣ — broadcast —
     _rooms.setdefault(project_id, []).append(ws)
     try:
         while True:
@@ -67,4 +68,4 @@ async def project_ws(ws: WebSocket, project_id: UUID):
     except WebSocketDisconnect:
         _rooms[project_id].remove(ws)
         if not _rooms[project_id]:
-            _rooms.pop(project_id)
+            _rooms.pop(project_id, None)
